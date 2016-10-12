@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<configuration>
+    <forwards>
+        <forward>
+            <source>/forward</source>
+            <targets>
+                <target isMain="true">
+                    <headers>
+                        <header>
+                            <name>host</name>
+                            <value>autodev.openspeech.cn</value>
+                        </header>
+                        <header>
+                            <name>X-Real-IP</name>
+                            <value>127.0.0.1</value>
+                        </header>
+                    </headers>
+                    <url>http://autodev.openspeech.cn</url>
+                </target>
+                <target>
+                    <headers>
+                        <header>
+                            <name>host</name>
+                            <value>autopre.openspeech.cn</value>
+                        </header>
+                        <header>
+                            <name>X-Real-IP</name>
+                            <value>127.0.0.1</value>
+                        </header>
+                    </headers>
+                    <url>http://autopre.openspeech.cn</url>
+                </target>
+            </targets>
+        </forward>
+        <forward>
+            <source>/jac</source>
+            <targets>
+                <target isMain="true">
+                    <url>http://172.31.3.38:7082/jac</url>
+                    <headers>
+                        <header>
+                            <name>host</name>
+                            <value>http://172.31.3.38:7082/jac</value>
+                        </header>
+                        <header>
+                            <name>X-Real-IP</name>
+                            <value>127.0.0.1</value>
+                        </header>
+                    </headers>
+                </target>
+                <target>
+                    <url>http://localhost:8080</url>
+                    <headers>
+                        <header>
+                            <name>host</name>
+                            <value>localhost:8080</value>
+                        </header>
+                        <header>
+                            <name>X-Real-IP</name>
+                            <value>127.0.0.1</value>
+                        </header>
+                    </headers>
+                </target>
+            </targets>
+        </forward>
+    </forwards>
+</configuration>
