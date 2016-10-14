@@ -3,7 +3,10 @@ package com.iflytek;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.web.filter.CharacterEncodingFilter;
 
 @SpringBootApplication
 public class ForwardApplication {
@@ -20,5 +23,14 @@ public class ForwardApplication {
 		executor.setMaxPoolSize(1000);
 		executor.setQueueCapacity(200);
 		return executor;
+	}
+
+	@Bean
+	@Order(Ordered.HIGHEST_PRECEDENCE)
+	public CharacterEncodingFilter filter() {
+		CharacterEncodingFilter characterEncodingFilter =new CharacterEncodingFilter();
+		characterEncodingFilter.setEncoding("UTF-8");
+		characterEncodingFilter.setForceEncoding(true);
+		return characterEncodingFilter;
 	}
 }

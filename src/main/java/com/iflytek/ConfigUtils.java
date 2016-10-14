@@ -90,6 +90,9 @@ public class ConfigUtils implements InitializingBean {
     }
 
     public Forward getForward(String source) {
+        if (source == null) {
+            return null;
+        }
         return map.get(source);
     }
 

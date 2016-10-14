@@ -10,17 +10,17 @@ package com.iflytek;
 import com.iflytek.config.Forward;
 import com.iflytek.config.Header;
 import com.iflytek.config.Target;
-import org.apache.http.client.CookieStore;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.cookie.BasicClientCookie;
+import org.apache.http.message.BasicNameValuePair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,11 +32,12 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.multipart.commons.CommonsMultipartResolver;
 
-import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
@@ -59,10 +60,21 @@ public class CallbackController {
     @Autowired
     private ThreadPoolTaskExecutor executor;
 
+    private static final String DEFAULT_ENCODING = "UTF-8";
+
     @RequestMapping
     public void process(HttpServletRequest request, HttpServletResponse response) {
         String path = request.getRequestURI();
         String source = configUtils.getSource(path);
+        if (source == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+            try {
+                response.getWriter().write("502, Bad gateway!");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
         Forward forward = configUtils.getForward(source);
         List<Target> targets = forward.getTargets();
         CloseableHttpClient httpClient = createClient(request);
@@ -74,13 +86,15 @@ public class CallbackController {
             Target target = targets.get(i);
             String realTarget = parseTarget(path, source, target.getUrl());
             addHeader(builder, target);
+            builder.setUri(realTarget);
+            HttpUriRequest httpUriRequest = builder.build();
             if (target.isMain()) {
                 hasMain = true;
-                result = send(realTarget, httpClient, builder, true);
+                result = send(realTarget, httpClient, httpUriRequest, true);
             } else if (!hasMain && i == targets.size() - 1) {
-                result = send(realTarget, httpClient, builder, true);
+                result = send(realTarget, httpClient, httpUriRequest, true);
             } else {
-                executor.execute(createTask(realTarget, httpClient, builder));
+                executor.execute(createTask(realTarget, httpClient, httpUriRequest));
             }
         }
         copyResponse(response, result);
@@ -119,19 +133,17 @@ public class CallbackController {
         }
     }
 
-    public CloseableHttpResponse send(final String target, final CloseableHttpClient httpClient, final RequestBuilder builder, boolean isMain) {
+    public CloseableHttpResponse send(final String target, final CloseableHttpClient httpClient, final HttpUriRequest httpUriRequest, boolean isMain) {
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("Request to : {}, isMain : {}", target, isMain);
         }
-        builder.setUri(target);
-        HttpUriRequest request = builder.build();
         if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("Request to : {}, isMain : {}", request.getRequestLine(), isMain);
+            LOGGER.debug("Request to : {}, isMain : {}", httpUriRequest.getRequestLine(), isMain);
         }
         try {
-            CloseableHttpResponse response = httpClient.execute(request);
+            CloseableHttpResponse response = httpClient.execute(httpUriRequest);
             if (LOGGER.isDebugEnabled()) {
-                LOGGER.debug("Response From {}, Response code: {}, isMain : {}", request.getRequestLine(), response.getStatusLine().toString(), isMain);
+                LOGGER.debug("Response From {}, Response code: {}, isMain : {}", httpUriRequest.getRequestLine(), response.getStatusLine().toString(), isMain);
             }
             return response;
         } catch (Exception e) {
@@ -140,11 +152,11 @@ public class CallbackController {
         return null;
     }
 
-    public Runnable createTask(final String target, final CloseableHttpClient httpClient, final RequestBuilder builder) {
+    public Runnable createTask(final String target, final CloseableHttpClient httpClient, final HttpUriRequest httpUriRequest) {
         return new Runnable() {
             @Override
             public void run() {
-                send(target, httpClient, builder, false);
+                send(target, httpClient, httpUriRequest, false);
             }
         };
     }
@@ -179,6 +191,7 @@ public class CallbackController {
         } else if ("PATCH".equalsIgnoreCase(method)) {
             requestBuilder = RequestBuilder.patch();
         }
+        requestBuilder.setCharset(Charset.forName(DEFAULT_ENCODING));
         return requestBuilder;
     }
 
@@ -204,13 +217,41 @@ public class CallbackController {
     }
 
     public void addParams(HttpServletRequest request, RequestBuilder forwardRequest) {
+        if ("POST".equalsIgnoreCase(request.getMethod())) {
+            _addPostParams(request, forwardRequest);
+        } else {
+            _addParams(request, forwardRequest);
+
+        }
+    }
+
+    private void _addParams(HttpServletRequest request, RequestBuilder forwardRequest) {
         Enumeration<String> params = request.getParameterNames();
         while (params.hasMoreElements()) {
             final String param = params.nextElement();
             String[] paramsValues = request.getParameterValues(param);
             for (String value : paramsValues) {
+                LOGGER.debug("name: {}, value: {}", param, value);
                 forwardRequest.addParameter(param, value);
             }
+        }
+    }
+
+    private void _addPostParams(HttpServletRequest request, RequestBuilder forwardRequest) {
+        List<NameValuePair> _params = new ArrayList<NameValuePair>();
+        Enumeration<String> params = request.getParameterNames();
+        while (params.hasMoreElements()) {
+            final String param = params.nextElement();
+            String[] paramsValues = request.getParameterValues(param);
+            for (String value : paramsValues) {
+                LOGGER.debug("name: {}, value: {}", param, value);
+                _params.add(new BasicNameValuePair(param, value));
+            }
+        }
+        try {
+            forwardRequest.setEntity(new UrlEncodedFormEntity(_params, DEFAULT_ENCODING));
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
         }
     }
 
@@ -220,6 +261,7 @@ public class CallbackController {
             final String param = params.nextElement();
             String[] paramsValues = request.getParameterValues(param);
             for (String value : paramsValues) {
+                LOGGER.debug("name: {}, value: {}", param, value);
                 builder.addTextBody(param, value, ContentType.TEXT_PLAIN.withCharset("UTF-8"));
             }
         }

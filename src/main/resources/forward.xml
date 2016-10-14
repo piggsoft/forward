@@ -63,5 +63,50 @@
                 </target>
             </targets>
         </forward>
+
+        <forward>
+            <source>/test</source>
+            <targets>
+                <target isMain="true">
+                    <url>http://172.16.16.158:8081</url>
+                    <headers>
+                        <header>
+                            <name>host</name>
+                            <value>172.16.16.158:8081</value>
+                        </header>
+                        <header>
+                            <name>X-Real-IP</name>
+                            <value>127.0.0.1</value>
+                        </header>
+                    </headers>
+                </target>
+                <target>
+                    <url>http://172.16.16.158:8082</url>
+                    <headers>
+                        <header>
+                            <name>host</name>
+                            <value>172.16.16.158:8082</value>
+                        </header>
+                        <header>
+                            <name>X-Real-IP</name>
+                            <value>127.0.0.1</value>
+                        </header>
+                    </headers>
+                </target>
+                <target>
+                    <url>http://172.16.16.158:8083</url>
+                    <headers>
+                        <header>
+                            <name>host</name>
+                            <value>172.16.16.158:8083</value>
+                        </header>
+                        <header>
+                            <name>X-Real-IP</name>
+                            <value>127.0.0.1</value>
+                        </header>
+                    </headers>
+                </target>
+            </targets>
+        </forward>
     </forwards>
 </configuration>
