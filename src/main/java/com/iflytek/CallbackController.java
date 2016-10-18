@@ -65,6 +65,7 @@ public class CallbackController {
     @RequestMapping
     public void process(HttpServletRequest request, HttpServletResponse response) {
         String path = request.getRequestURI();
+        LOGGER.debug("requestURI: {}", path);
         String source = configUtils.getSource(path);
         if (source == null) {
             response.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
@@ -106,6 +107,9 @@ public class CallbackController {
         }
         org.apache.http.Header[] headers = result.getAllHeaders();
         for (org.apache.http.Header header : headers) {
+            if ("Transfer-Encoding".equalsIgnoreCase(header.getName())) {
+                continue;
+            }
             response.addHeader(header.getName(), header.getValue());
         }
         try {
@@ -119,6 +123,10 @@ public class CallbackController {
         List<Header> headers = target.getHeaders();
         if (headers != null && !headers.isEmpty()) {
             for (Header header : headers) {
+                if ("host".equalsIgnoreCase(header.getName())) {
+                    forwardRequest.removeHeaders(header.getName());
+                    continue;
+                }
                 forwardRequest.removeHeaders(header.getName());
                 forwardRequest.addHeader(header.getName(), header.getValue());
             }
