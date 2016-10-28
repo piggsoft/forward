@@ -15,6 +15,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.methods.RequestBuilder;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
@@ -35,6 +36,7 @@ import org.springframework.web.multipart.commons.CommonsMultipartResolver;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -257,10 +259,24 @@ public class CallbackController {
             }
         }
         try {
-            forwardRequest.setEntity(new UrlEncodedFormEntity(_params, DEFAULT_ENCODING));
+            if (_params.size() > 0) {
+                forwardRequest.setEntity(new UrlEncodedFormEntity(_params, DEFAULT_ENCODING));
+            }
         } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getMessage(), e);
         }
+        try {
+            InputStream in = request.getInputStream();
+            if (in != null) {
+                byte[] bytes = StreamUtils.copyToByteArray(request.getInputStream());
+                ContentType contentType = ContentType.create(request.getHeader("Content-Type"));
+                ByteArrayEntity entity = new ByteArrayEntity(bytes, contentType);
+                forwardRequest.setEntity(entity);
+            }
+        } catch (Exception e) {
+            LOGGER.error(e.getMessage(), e);
+        }
+
     }
 
     private void addMultipartParams(HttpServletRequest request, RequestBuilder requestBuilder, MultipartEntityBuilder builder) {
@@ -296,7 +312,6 @@ public class CallbackController {
                     MultipartFile file = multiRequest.getFile(iter.next());
                     if (file != null) {
                         ContentType contentType = ContentType.create(file.getContentType());
-                        System.out.println(file.getOriginalFilename());
                         builder.addBinaryBody(file.getName(), file.getBytes(), contentType, file.getOriginalFilename());
                     }
                 }
